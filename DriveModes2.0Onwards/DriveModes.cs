@@ -38,6 +38,20 @@ namespace DrivingModes
 
         List<int> modIndexes = new List<int> { };
 
+        private Dictionary<Vehicle, Vector3> vehRotVel = new Dictionary<Vehicle, Vector3>();
+        private Dictionary<Vehicle, Vector3> vehVel = new Dictionary<Vehicle, Vector3>();
+        private Dictionary<Vehicle, float> vehSpeed = new Dictionary<Vehicle, float>();
+
+        private Dictionary<Ped, Vector3> pedVel = new Dictionary<Ped, Vector3>();
+        private Dictionary<Ped, Vector3> pedRotVel = new Dictionary<Ped, Vector3>();
+        private Dictionary<Ped, bool> pediswalking = new Dictionary<Ped, bool>();
+
+        private Dictionary<Prop, Vector3> propVel = new Dictionary<Prop, Vector3>();
+        private Dictionary<Prop, Vector3> propRotVel = new Dictionary<Prop, Vector3>();
+
+        Stopwatch timer = new Stopwatch();
+
+
         string LastUsedVehicleHash;
         int LastUsedSpecialVehicleIndex;
         string LastUsedVehicleName;
@@ -46,6 +60,7 @@ namespace DrivingModes
         Camera CustomVehicleCam;
         int CamCurrentMode;
         bool CamOn;
+        bool _GAME_PAUSED = false; // flag that tells if game is paused
         int lastVehicleViewMode;
         int lastPedViewMode;
         float LeftRightSum = 0f;
@@ -70,6 +85,7 @@ namespace DrivingModes
         MenuPool _menuPool;
         UIMenu MainMenu;
         UIMenuItem ItemAddVehicleToList;
+        UIMenuItem PauseGame;
         UIMenuItem ItemRefreshAllSettings;
 
         UIMenu VehicleEditorMenu;
@@ -219,6 +235,9 @@ namespace DrivingModes
             MainMenu.DefaultTextColor = Color.FromArgb(255, 255, 255, 255);
             MainMenu.TitleUnderlineColor = Color.FromArgb(80, 150, 255, 255);
             MainMenu.UseEventBasedControls = false;
+
+            PauseGame = new UIMenuItem("Pause Game", null, "This shit will pause the game without the defaut pause menu");
+            MainMenu.AddMenuItem(PauseGame);
 
             ItemAddVehicleToList = new UIMenuItem("Create Initial Config", null, "If \"1st - Default.cfg\" already exists, it will be overwritten by the vehicle's current handling data. This will also give the current vehicle its own camera settings.");
             MainMenu.AddMenuItem(ItemAddVehicleToList);
@@ -538,6 +557,99 @@ namespace DrivingModes
             //UI.ShowSubtitle(SpecialVehicles[0].VehicleHash.ToString() + ", " + SpecialVehicles[0].Configs[0].ConfigName, 5000);
         }
 
+        void PauseGameF()
+        {
+            
+        }
+
+        void FreezeTime_m( bool activate)
+        {
+            if (activate)
+            {
+                Vehicle[] allVehicles = World.GetAllVehicles();
+                foreach (Vehicle val in allVehicles)
+                {
+                    if (!vehRotVel.ContainsKey(val) && !(val == null) && val.Exists())
+                    {
+                        //vehRotVel[val] = Function.Call<Vector3>(Hash.GET_ENTITY_ROTATION_VELOCITY, val);
+                        //vehVel[val] = Function.Call<Vector3>(Hash.GET_ENTITY_VELOCITY, val);
+                        //vehSpeed[val] = Function.Call<float>(Hash.GET_ENTITY_SPEED, val);
+                        val.FreezePosition = true;
+                        //if ((int)val.ClassType == 15 || (int)val.ClassType == 21) 
+                        //val.Speed = 0f;
+                    }
+                }
+
+                Prop[] allProps = World.GetAllProps();
+                foreach (Prop val2 in allProps)
+                {
+                    if (!(val2 == null) && val2.Exists() && !propVel.ContainsKey(val2) && !val2.IsAttached())
+                    {
+                        //propRotVel[val2] = Function.Call<Vector3>(Hash.GET_ENTITY_ROTATION_VELOCITY, val2);
+                        //propVel[val2] = Function.Call<Vector3>(Hash.GET_ENTITY_VELOCITY, val2);
+                        val2.FreezePosition = true;
+                    }
+                }
+
+                Ped[] allPeds = World.GetAllPeds();
+                foreach (Ped val3 in allPeds)
+                {
+                    if (!(val3 == Game.Player.Character) && !(val3 == null) && val3.Exists())
+                     {
+                        //pedRotVel[val3] = Function.Call<Vector3>(Hash.GET_ENTITY_ROTATION_VELOCITY, val3);
+                        //pedVel[val3] = Function.Call<Vector3>(Hash.GET_ENTITY_VELOCITY, val3);
+                        val3.FreezePosition = true;
+                    }
+                }
+            }
+            else
+            {
+                Vehicle[] allVehicles = World.GetAllVehicles();
+                foreach (Vehicle val in allVehicles)
+                {
+                    if (!vehRotVel.ContainsKey(val) && !(val == null) && val.Exists())
+                    {
+                        val.FreezePosition = false;
+                        //val.Rotation = vehRotVel[val];
+                        //val.Velocity = vehVel[val];
+                        //val.Speed = vehSpeed[val];
+
+                    }
+                }
+
+                Prop[] allProps = World.GetAllProps();
+                foreach (Prop val2 in allProps)
+                {
+                    if (!(val2 == null) && val2.Exists() && !propVel.ContainsKey(val2) && !val2.IsAttached())
+                    {
+                        val2.FreezePosition = false;
+                        //val2.Rotation = propRotVel[val2];
+                        //val2.Velocity = propVel[val2];
+                    }
+                }
+
+                Ped[] allPeds = World.GetAllPeds();
+                foreach (Ped val3 in allPeds)
+                {
+                    if (!(val3 == Game.Player.Character) && !(val3 == null) && val3.Exists())
+                    {
+                        val3.FreezePosition = false;
+                        //val3.Rotation = pedRotVel[val3];
+                        //val3.Velocity = pedVel[val3];
+                    }
+                }
+
+                vehRotVel.Clear();
+                vehVel.Clear();
+                vehSpeed.Clear();
+                propVel.Clear();
+                propRotVel.Clear();
+                pedVel.Clear();
+                pedRotVel.Clear();
+
+            }
+        }
+
         void CreateNewConfig(string configName = "1st - Default.cfg")
         {
             string ModelHash = ((VehicleHash)Game.Player.Character.CurrentVehicle.Model.Hash).ToString();
@@ -804,7 +916,7 @@ namespace DrivingModes
             FixedCameraSettings.PositionOffset = new Vector3
                 (
                 config.GetValue<float>("Bonnet Camera", "X Position", 0f),
-                config.GetValue<float>("Bonnet Camera", "Y Position", 0f),
+                config.GetValue<float>("Bonnet Camera", "Y Position", 0.5f),
                 config.GetValue<float>("Bonnet Camera", "Z Position", 0.86f)
                 );
 
@@ -931,9 +1043,85 @@ namespace DrivingModes
                 }
             }
 
-            ManageCameras();
-            
-            ProcessMenus();
+            Player val = Game.Player;
+            Ped character = Game.Player.Character;
+            Vehicle currentVehicle = character.CurrentVehicle;
+            Entity currentVehicle2 = character.CurrentVehicle;
+            if (character.IsOnBike) { 
+                currentVehicle2.ApplyForce(currentVehicle.ForwardVector * 2f);
+            }
+            Vector3 position1 = new Vector3(0, 0.5f, 0.86f);
+            Vector3 position2 = new Vector3(0, -1f, 0.86f);
+
+            //Function.Call<int>(Hash.SET_GAME_PAUSED, true);
+            //Wait(1000);
+            //Function.Call<int>(Hash.SET_GAME_PAUSED, false);
+
+            /*Stopwatch timer = new Stopwatch();
+            timer.Start();
+            while (timer.Elapsed.TotalSeconds < 2)
+            {
+                ShowCam(position1);
+            }
+            timer.Stop();*/
+
+
+
+
+
+            /*CamCurrentMode = (int)CameraTypes.FixedCam;
+             Stopwatch timer = new Stopwatch();
+             timer.Start();
+             while (timer.Elapsed.TotalSeconds < 2)
+             {
+                 ManageCameras(position1);
+             }
+             timer.Stop();*/
+
+            if (!timer.IsRunning)
+            {
+                timer.Start();
+            }
+
+            if (character.IsOnBike)
+            {
+                if(timer.Elapsed.TotalSeconds > 0.25)
+                {
+
+                    //Function.Call<int>(Hash._SET_BIKE_LEAN_ANGLE, 0,0);
+
+                    timer.Stop();
+                    timer.Reset();
+
+                    FreezeTime_m(true);
+                    CamCurrentMode = (int)CameraTypes.StereoCam;
+                    ManageCameras(position1);
+                    Function.Call<int>(Hash.SET_GAME_PAUSED, true);
+                    Wait(250);
+                    Function.Call<int>(Hash.SET_GAME_PAUSED, false);
+                    Wait(1);
+                    ManageCameras(position2);
+                    Function.Call<int>(Hash.SET_GAME_PAUSED, true);
+                    Wait(250);
+                    Function.Call<int>(Hash.SET_GAME_PAUSED, false);
+                    FreezeTime_m(false);
+                }
+                else
+                {
+                    CamCurrentMode = (int)CameraTypes.FixedCam;
+                    ManageCameras(position1);
+                }
+            }
+            else
+            {
+                //CamCurrentMode = (int)CameraTypes.FixedCam;
+                ManageCameras(position1);
+            }
+
+
+            //CamCurrentMode = (int)CameraTypes.FixedCam;
+
+            //ProcessMenus();
         }
 
         ScriptCommunicator DMComm = new ScriptCommunicator("DrivingModes");
@@ -970,6 +1158,11 @@ namespace DrivingModes
                             if (MainMenu.SelectedItem == ItemAddVehicleToList)
                             {
                                 CreateNewConfig();
+                            }
+
+                            if (MainMenu.SelectedItem == PauseGame)
+                            {
+                                PauseGameF();
                             }
 
                             if (MainMenu.SelectedItem == ItemRefreshAllSettings)
@@ -1390,40 +1583,21 @@ namespace DrivingModes
             DefaultGameplayCam = 0,
             FirstPersonCam = 1,
             FixedCam = 2,
-            ThirdPersonCam = 3
+            ThirdPersonCam = 3,
+            StereoCam = 4
         }
 
-        void ManageCameras()
+        void ManageCameras(Vector3 position)
         {
             SetupCameraOnce();
             ManageGameplayCamViewMode();
             EnableBehindAimNow();
             FPSAimingOffsets();
-            ShowCam();
 
-            if (CameraSettingsMenu.IsVisible)
-            {
-                if (QuickLoadCamSettings)
-                {
-                    if (isVehicleSpecial(Game.Player.Character.CurrentVehicle))
-                    {
-                        LoadCameraSettings(@"scripts\DrivingModes\Configs\" + LastUsedVehicleName + "\\CameraSettings.ini");
-                        QuickLoadCamSettings = false;
-                    }
-                    else
-                    {
-                        LoadCameraSettings(@"scripts\DrivingModes\GlobalCameraSettings.ini");
-                        QuickLoadCamSettings = false;
-                    }
-                }
-            }
-            else
-            {
-                QuickLoadCamSettings = true;
-            }
+            ShowCam(position);
         }
 
-        void ShowCam()
+        void ShowCam(Vector3 position)
         {
             if (Game.Player.Character.IsInVehicle())
             {
@@ -1455,6 +1629,10 @@ namespace DrivingModes
                             if (CamCurrentMode == (int)CameraTypes.FirstPersonCam)
                             {
                                 RenderFPPCam();
+                            }
+                            else if (CamCurrentMode == (int)CameraTypes.StereoCam)
+                            {                                
+                                RenderStereoCam(position);
                             }
                             else if (CamCurrentMode == (int)CameraTypes.FixedCam)
                             {
@@ -1714,6 +1892,39 @@ namespace DrivingModes
                     World.RenderingCamera = null;
                 }
             }
+        }
+
+        void RenderStereoCam(Vector3 position) //Bonnet Perspective Camera
+        {
+            if (!LookBackAim)
+            {
+                World.RenderingCamera = CustomVehicleCam;
+
+                CustomVehicleCam.StopPointing();
+                CustomVehicleCam.Detach();
+
+                CustomVehicleCam.FieldOfView = 180f;
+                Function.Call(Hash.SET_CAM_AFFECTS_AIMING, CustomVehicleCam, true);
+
+                Vector3 rotation = FixedCameraSettings.Rotation;
+                Vehicle vehicle = Game.Player.Character.CurrentVehicle;
+
+                CustomVehicleCam.Position = vehicle.GetOffsetInWorldCoords(new Vector3(0, vehicle.Model.GetDimensions().Y / 2, vehicle.Model.GetDimensions().Z * -0.3f)) + vehicle.ForwardVector * position.X + vehicle.RightVector * position.Y + vehicle.UpVector * position.Z;
+                CustomVehicleCam.Rotation = new Vector3(vehicle.Rotation.X + rotation.X + FPLookUpDownValue(), vehicle.Rotation.Y + rotation.Y, vehicle.Rotation.Z + rotation.Z + FPLookLeftRightValue());
+
+                if (Game.IsControlPressed(2, GTA.Control.VehicleAim))
+                {
+                    Function.Call(Hash.SHOW_HUD_COMPONENT_THIS_FRAME, 14);
+                }
+            }
+            else
+            {
+                if (World.RenderingCamera == CustomVehicleCam)
+                {
+                    World.RenderingCamera = null;
+                }
+            }
+
         }
 
         void RenderTPPCam() //Third Person Perspective Camera //Completely by LeeC2202! Thanks!!
